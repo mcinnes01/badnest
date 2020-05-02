@@ -270,6 +270,18 @@ class NestAPI():
                         self.device_data[sn]['eco'] = True
                     else:
                         self.device_data[sn]['eco'] = False
+                    # Hot water
+                    if sensor_data[sn]['has_hot_water_control'] = True:
+                        self.device_data[sn]['has_hot_water_control'] = True
+                        self.device_data[sn]['hot_water_mode'] = sensor_data[sn]['hot_water_mode']
+                        self.device_data[sn]['has_hot_water_control'] = sensor_data[sn]['hot_water_active']
+                        self.device_data[sn]['has_hot_water_control'] = sensor_data[sn]['hot_water_away_active']
+                        self.device_data[sn]['has_hot_water_control'] = sensor_data[sn]['hot_water_away_enabled']
+                        self.device_data[sn]['has_hot_water_control'] = sensor_data[sn]['has_hot_water_temperature']
+                        self.device_data[sn]['has_hot_water_control'] = sensor_data[sn]['heat_link_hot_water_type']
+                        self.device_data[sn]['has_hot_water_control'] = sensor_data[sn]['hot_water_boiling_state']
+                        self.device_data[sn]['has_hot_water_control'] = sensor_data[sn]['hot_water_boost_time_to_end']
+                        self.device_data[sn]['has_hot_water_control'] = sensor_data[sn]['hot_water_next_transition_time']
                 # Protect
                 elif bucket["object_key"].startswith(
                         f"topaz.{sn}"):
@@ -483,6 +495,51 @@ class NestAPI():
             _LOGGER.debug('Failed to set eco, trying to log in again')
             self.login()
             self.thermostat_set_eco_mode(device_id, state)
+            
+    def hot_water_boost_start(self, device_id, temp, temp_high=None):
+        if device_id not in self.thermostats:
+            return
+
+        try:
+            if temp_high is None:
+                self._session.post(
+                    f"{self._czfe_url}/v5/put",
+                    json={
+                        "objects": [
+                            {
+                                "object_key": f'shared.{device_id}',
+                                "op": "MERGE",
+                                "value": {"target_temperature": temp},
+                            }
+                        ]
+                    },
+                    headers={"Authorization": f"Basic {self._access_token}"},
+                )
+            else:
+                self._session.post(
+                    f"{self._czfe_url}/v5/put",
+                    json={
+                        "objects": [
+                            {
+                                "object_key": f'shared.{device_id}',
+                                "op": "MERGE",
+                                "value": {
+                                    "target_temperature_low": temp,
+                                    "target_temperature_high": temp_high,
+                                },
+                            }
+                        ]
+                    },
+                    headers={"Authorization": f"Basic {self._access_token}"},
+                )
+        except requests.exceptions.RequestException as e:
+            _LOGGER.error(e)
+            _LOGGER.error('Failed to set temperature, trying again')
+            self.thermostat_set_temperature(device_id, temp, temp_high)
+        except KeyError:
+            _LOGGER.debug('Failed to set temperature, trying to log in again')
+            self.login()
+            self.thermostat_set_temperature(device_id, temp, temp_high)
 
     def _camera_set_properties(self, device_id, property, value):
         if device_id not in self.cameras:
